@@ -1,3 +1,117 @@
+/*
+ Basic ESP8266 MQTT example
+ This sketch demonstrates the capabilities of the pubsub library in combination
+ with the ESP8266 board/library.
+ It connects to an MQTT server then:
+  - publishes "hello world" to the topic "outTopic" every two seconds
+  - subscribes to the topic "inTopic", printing out any messages
+    it receives. NB - it assumes the received payloads are strings not binary
+  - If the first character of the topic "inTopic" is an 1, switch ON the ESP Led,
+    else switch it off
+ It will reconnect to the server if the connection is lost using a blocking
+ reconnect function. See the 'mqtt_reconnect_nonblocking' example for how to
+ achieve the same result without blocking the main loop.
+ To install the ESP8266 board, (using Arduino 1.6.4+):
+  - Add the following 3rd party board manager under "File -> Preferences -> Additional Boards Manager URLs":
+       http://arduino.esp8266.com/stable/package_esp8266com_index.json
+  - Open the "Tools -> Board -> Board Manager" and click install for the ESP8266"
+  - Select your ESP8266 in "Tools -> Board"
+*/
+
+#include <WiFi.h>
+#include <ezTime.h>
+#include <PubSubClient.h>
+
+// Update these with values suitable for your network.
+
+const char* ssid = "Dom_ru";
+const char* password = "1234512345aA";
+const char* mqtt_server = "188.93.210.72";
+const char* mqtt_user = "device_user";
+const char* mqtt_password = "756120";
+const int relayPin = 5;
+const int SENS_PIN = 27;
+int sostoianie_pompi=5;
+int vrema=0;
+int CurrentState =0;
+// Текущее состояние сенсора
+bool SensorState = true;
+// Время начала смены 
+unsigned long SensorStartChange = 0;
+// Защитный интервал между сменами состояния
+unsigned long TIMEOUTq = 30000;
+// Текущее время
+unsigned long CurrentTime = 0;
+
+
+
+
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+unsigned long lastMsg = 0;
+#define MSG_BUFFER_SIZE	(255)
+char msg[MSG_BUFFER_SIZE];
+int indexSend = 0;
+
+void setup_wifi() {
+
+  delay(10);
+  // We start by connecting to a WiFi network
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  randomSeed(micros());
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
+
+  String messageTemp;
+
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)payload[i]);
+    messageTemp += (char)payload[i];
+  }
+  Serial.println();
+
+  // Switch on the LED if an 1 was received as first character
+  if (String(topic) == "server/pump1") {
+    unsigned long nowPump = millis();
+    int workPump = messageTemp.toInt();
+
+
+     digitalWrite(relayPin, 1);
+    while (true) {
+      lastMsg = millis();
+          if ((lastMsg-nowPump) > workPump) {
+
+        break;
+      }
+      digitalWrite(relayPin, 0);
+    //  delay(50);
+     // digitalWrite(relayPin, 1);
+      //delay(1000);
+    }
+    Serial.println("End work pump");
+    digitalWrite(relayPin, 1);
+    sostoianie_pompi=1;
   }
 }
 
